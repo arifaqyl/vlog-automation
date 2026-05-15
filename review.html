@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vlog Automaton — Review Editor</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;
+--keep:#238636;--keep-bg:#0d1117;--cut:#da3633;--cut-bg:#1a0f0f;
+--accent:#58a6ff;--accent2:#1f6feb;--timeline-bg:#0d1117}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;display:flex;flex-direction:column}
+header{padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-shrink:0}
+header h1{font-size:16px;font-weight:600}
+header .stats{font-size:13px;color:var(--text2)}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s}
+.btn:hover{background:var(--border)}
+.btn-primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.btn-primary:hover{background:var(--accent)}
+.btn-green{background:var(--keep);border-color:var(--keep);color:#fff}
+
+.main{display:flex;flex:1;overflow:hidden}
+.panel-left{width:55%;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.panel-right{width:45%;display:flex;flex-direction:column}
+
+/* Video preview */
+.preview{background:#000;flex-shrink:0;display:flex;align-items:center;justify-content:center;height:300px;position:relative}
+.preview video{max-width:100%;max-height:100%;object-fit:contain}
+.preview .time-display{position:absolute;bottom:8px;right:12px;background:rgba(0,0,0,.7);padding:4px 10px;border-radius:4px;font-size:13px;font-family:monospace}
+
+/* Timeline */
+.timeline-container{flex:1;overflow-y:auto;padding:8px}
+.timeline-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px}
+.timeline-header h3{font-size:14px;font-weight:600}
+.topic-card{margin:4px 8px;border-radius:8px;border:1px solid var(--border);overflow:hidden;transition:all .15s}
+.topic-card:hover{border-color:var(--accent)}
+.topic-card.keep{border-left:3px solid var(--keep)}
+.topic-card.cut{border-left:3px solid var(--cut);opacity:.6}
+.topic-card.cut:hover{opacity:1}
+.topic-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);cursor:pointer;user-select:none}
+.topic-head .badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.topic-head .badge.keep{background:rgba(35,134,54,.25);color:#3fb950}
+.topic-head .badge.cut{background:rgba(218,54,51,.2);color:#f85149}
+.topic-head .topic-time{font-size:12px;color:var(--text2);font-family:monospace}
+.topic-head .topic-score{font-size:12px;color:var(--text2);margin-left:auto}
+.topic-head .toggle-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:0 4px}
+.topic-body{padding:10px 14px;font-size:13px;line-height:1.6;color:var(--text2);max-height:200px;overflow-y:auto;display:none}
+.topic-body.open{display:block}
+.topic-body .seg{padding:2px 0;cursor:pointer;border-radius:3px;transition:background .1s}
+.topic-body .seg:hover{background:rgba(88,166,255,.1);color:var(--text)}
+.topic-body .seg .seg-time{font-size:11px;color:var(--accent);font-family:monospace;margin-right:6px}
+
+/* Visual timeline bar */
+.timeline-bar{height:60px;margin:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border);position:relative;overflow:hidden;flex-shrink:0;cursor:pointer}
+.timeline-bar .segment{position:absolute;top:4px;bottom:4px;border-radius:3px;transition:opacity .1s}
+.timeline-bar .segment.keep{background:rgba(35,134,54,.5);border:1px solid var(--keep)}
+.timeline-bar .segment.cut{background:rgba(218,54,51,.15);border:1px solid rgba(218,54,51,.3)}
+.timeline-bar .playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);z-index:10;pointer-events:none}
+.timeline-bar .segment:hover{opacity:.8;z-index:5}
+
+/* Drag handles */
+.segment .handle{position:absolute;top:0;bottom:0;width:8px;cursor:col-resize;z-index:6}
+.segment .handle:hover{background:rgba(88,166,255,.4)}
+.segment .handle-left{left:0;border-radius:3px 0 0 3px}
+.segment .handle-right{right:0;border-radius:0 3px 3px 0}
+
+/* Transcript panel */
+.transcript-panel{flex:1;overflow-y:auto;padding:12px 16px}
+.transcript-panel h3{font-size:14px;margin-bottom:10px;font-weight:600}
+.no-data{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text2);gap:16px;text-align:center;padding:40px}
+.no-data .icon{font-size:48px}
+
+/* File drop zone */
+.dropzone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:all .2s}
+.dropzone:hover{border-color:var(--accent);background:rgba(88,166,255,.05)}
+.dropzone input{display:none}
+
+/* Controls */
+.controls{display:flex;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Vlog Automaton — Review Editor</h1>
+  <span class="stats" id="stats">Load a video & edit log to start</span>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button class="btn" onclick="loadFiles()">Load Files</button>
+    <button class="btn btn-green" onclick="exportJSON()" id="exportBtn" disabled>Export Adjusted JSON</button>
+  </div>
+</header>
+
+<div class="main" id="mainArea">
+  <!-- Before files loaded -->
+  <div class="no-data" id="welcomeScreen">
+    <div class="icon">🎬</div>
+    <div>
+      <h2 style="margin-bottom:8px">Vlog Automaton Review Editor</h2>
+      <p style="color:var(--text2);max-width:400px">Load your source video and the <code>_edit_log.json</code> from the auto-cutter to review and adjust cuts visually.</p>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <div class="dropzone" onclick="document.getElementById('videoInput').click()">
+        <input type="file" id="videoInput" accept="video/*" onchange="handleVideo(this)">
+        <div>📹 Load Video</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">MP4, MKV, etc.</div>
+      </div>
+      <div class="dropzone" onclick="document.getElementById('jsonInput').click()">
+        <input type="file" id="jsonInput" accept=".json" onchange="handleJSON(this)">
+        <div>📋 Load Edit Log</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">_edit_log.json</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- After files loaded -->
+  <div class="panel-left" id="leftPanel" style="display:none">
+    <div class="preview">
+      <video id="videoEl" controls></video>
+      <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+    </div>
+    <div class="timeline-bar" id="timelineBar" onclick="seekTimeline(event)">
+      <div class="playhead" id="playhead"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="toggleAll('keep')">Keep All</button>
+      <button class="btn" onclick="toggleAll('cut')">Reset to Auto</button>
+      <span style="font-size:12px;color:var(--text2);margin-left:auto" id="outputDuration"></span>
+    </div>
+    <div class="timeline-container" id="topicList"></div>
+  </div>
+
+  <div class="panel-right" id="rightPanel" style="display:none">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3>Transcript</h3>
+      <p style="font-size:12px;color:var(--text2);margin-top:4px">Click any segment to preview. Click the KEEP/CUT badge to toggle.</p>
+    </div>
+    <div class="transcript-panel" id="transcriptPanel"></div>
+  </div>
+</div>
+
+<script>
+let editLog = null;
+let videoUrl = null;
+let videoEl = null;
+let playheadInterval = null;
+
+function handleVideo(input) {
+  if (!input.files[0]) return;
+  videoUrl = URL.createObjectURL(input.files[0]);
+  videoEl = document.getElementById('videoEl');
+  videoEl.src = videoUrl;
+  checkReady();
+}
+
+function handleJSON(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      editLog = JSON.parse(e.target.result);
+      checkReady();
+    } catch (err) {
+      alert('Invalid JSON file: ' + err.message);
+    }
+  };
+  reader.readAsText(input.files[0]);
+}
+
+function loadFiles() {
+  document.getElementById('videoInput').click();
+  setTimeout(() => document.getElementById('jsonInput').click(), 500);
+}
+
+function checkReady() {
+  if (!editLog || !videoUrl) return;
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('leftPanel').style.display = 'flex';
+  document.getElementById('rightPanel').style.display = 'flex';
+  document.getElementById('exportBtn').disabled = false;
+  renderUI();
+  startPlayhead();
+}
+
+function fmt(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function renderUI() {
+  const dur = editLog.input_duration;
+  document.getElementById('stats').textContent =
+    `${editLog.input} | ${fmt(dur)} | Quality: ${editLog.quality}`;
+
+  // Timeline bar segments
+  const bar = document.getElementById('timelineBar');
+  bar.querySelectorAll('.segment').forEach(s => s.remove());
+
+  editLog.topics.forEach((topic, i) => {
+    const el = document.createElement('div');
+    el.className = `segment ${topic.status.toLowerCase()}`;
+    el.style.left = (topic.start / dur * 100) + '%';
+    el.style.width = Math.max(((topic.end - topic.start) / dur * 100), 0.3) + '%';
+    el.title = `Topic ${topic.id}: ${topic.transcript?.substring(0, 60) || ''}...`;
+    el.onclick = (e) => { e.stopPropagation(); seekTo(topic.start); };
+
+    // Drag handles
+    const hl = document.createElement('div');
+    hl.className = 'handle handle-left';
+    hl.onmousedown = (e) => startDrag(e, i, 'start');
+    el.appendChild(hl);
+
+    const hr = document.createElement('div');
+    hr.className = 'handle handle-right';
+    hr.onmousedown = (e) => startDrag(e, i, 'end');
+    el.appendChild(hr);
+
+    bar.appendChild(el);
+  });
+
+  // Topic cards
+  const list = document.getElementById('topicList');
+  list.innerHTML = '';
+  editLog.topics.forEach((topic, i) => {
+    const card = document.createElement('div');
+    card.className = `topic-card ${topic.status.toLowerCase()}`;
+    card.id = `topic-${i}`;
+
+    const dur_s = (topic.end - topic.start).toFixed(1);
+    card.innerHTML = `
+      <div class="topic-head" onclick="toggleBody(${i})">
+        <span class="badge ${topic.status.toLowerCase()}" onclick="event.stopPropagation();toggleStatus(${i})">${topic.status}</span>
+        <span class="topic-time">${fmt(topic.start)} — ${fmt(topic.end)} (${dur_s}s)</span>
+        <span class="topic-score">Score: ${topic.score}</span>
+        <button class="toggle-btn" onclick="event.stopPropagation();seekTo(${topic.start})">▶</button>
+      </div>
+      <div class="topic-body" id="body-${i}">
+        ${(topic.segments || []).map(seg =>
+          `<div class="seg" onclick="event.stopPropagation();seekTo(${seg.start})">
+            <span class="seg-time">${fmt(seg.start)}</span>${seg.text}
+          </div>`
+        ).join('')}
+        ${!topic.segments ? `<p>${topic.transcript || ''}</p>` : ''}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Full transcript in right panel
+  renderTranscript();
+  updateOutputDuration();
+}
+
+function renderTranscript() {
+  const panel = document.getElementById('transcriptPanel');
+  let html = '';
+  editLog.topics.forEach((topic, i) => {
+    const statusColor = topic.status === 'KEEP' ? 'var(--keep)' : 'var(--cut)';
+    html += `<div style="margin-bottom:16px;padding:10px;border-radius:6px;border-left:3px solid ${statusColor};background:var(--surface)">`;
+    html += `<div style="display:flex;justify-content:space-between;margin-bottom:6px">`;
+    html += `<span style="font-size:12px;font-weight:600;color:${statusColor}">Topic ${topic.id} — ${topic.status}</span>`;
+    html += `<span style="font-size:11px;color:var(--text2)">${fmt(topic.start)} — ${fmt(topic.end)} | Score: ${topic.score}</span>`;
+    html += `</div>`;
+    if (topic.segments) {
+      topic.segments.forEach(seg => {
+        html += `<div class="seg" onclick="seekTo(${seg.start})" style="padding:3px 0;cursor:pointer">`;
+        html += `<span class="seg-time">${fmt(seg.start)}</span>`;
+        html += `<span>${seg.text}</span>`;
+        html += `</div>`;
+      });
+    } else {
+      html += `<p style="line-height:1.6">${topic.transcript || ''}</p>`;
+    }
+    html += `</div>`;
+  });
+  panel.innerHTML = html;
+}
+
+function toggleBody(i) {
+  const body = document.getElementById(`body-${i}`);
+  body.classList.toggle('open');
+}
+
+function toggleStatus(i) {
+  const topic = editLog.topics[i];
+  topic.status = topic.status === 'KEEP' ? 'CUT' : 'KEEP';
+  rebuildIntervals();
+  renderUI();
+}
+
+function toggleAll(mode) {
+  if (mode === 'keep') {
+    editLog.topics.forEach(t => t.status = 'KEEP');
+  } else {
+    // Reset to original scores
+    const scores = editLog.topics.map(t => t.score).sort((a,b) => a-b);
+    const presets = {HIGHLIGHTS: 62, BALANCED: 38, CHILL: 12};
+    const pct = presets[editLog.quality] || 38;
+    const idx = Math.floor(scores.length * pct / 100);
+    const threshold = scores[Math.min(idx, scores.length - 1)];
+    editLog.topics.forEach(t => {
+      t.status = t.score >= threshold ? 'KEEP' : 'CUT';
+    });
+  }
+  rebuildIntervals();
+  renderUI();
+}
+
+function rebuildIntervals() {
+  const kept = editLog.topics.filter(t => t.status === 'KEEP');
+  editLog.intervals_kept = kept.map(t => [
+    Math.max(0, t.start - 0.45),
+    t.end + 0.45
+  ]);
+  // Merge overlapping
+  editLog.intervals_kept.sort((a,b) => a[0] - b[0]);
+  const merged = [];
+  for (const iv of editLog.intervals_kept) {
+    if (merged.length && iv[0] <= merged[merged.length-1][1] + 1.2) {
+      merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], iv[1]);
+    } else {
+      merged.push([...iv]);
+    }
+  }
+  editLog.intervals_kept = merged;
+  updateOutputDuration();
+}
+
+function updateOutputDuration() {
+  const dur = editLog.intervals_kept.reduce((s, iv) => s + (iv[1] - iv[0]), 0);
+  const pct = (dur / editLog.input_duration * 100).toFixed(0);
+  document.getElementById('outputDuration').textContent = `Output: ${fmt(dur)} (${pct}% kept)`;
+  editLog.output_duration = Math.round(dur * 100) / 100;
+  editLog.pct_kept = parseFloat(pct);
+}
+
+function seekTo(time) {
+  if (videoEl) {
+    videoEl.currentTime = time;
+    videoEl.play();
+  }
+}
+
+function seekTimeline(e) {
+  if (!editLog || !videoEl) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  videoEl.currentTime = pct * editLog.input_duration;
+}
+
+function startPlayhead() {
+  if (playheadInterval) clearInterval(playheadInterval);
+  playheadInterval = setInterval(() => {
+    if (!videoEl || !editLog) return;
+    const pct = videoEl.currentTime / editLog.input_duration * 100;
+    document.getElementById('playhead').style.left = pct + '%';
+    document.getElementById('timeDisplay').textContent =
+      `${fmt(videoEl.currentTime)} / ${fmt(editLog.input_duration)}`;
+  }, 100);
+}
+
+// Drag to adjust topic boundaries
+let dragState = null;
+function startDrag(e, topicIdx, edge) {
+  e.preventDefault();
+  e.stopPropagation();
+  dragState = { topicIdx, edge, startX: e.clientX };
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+}
+function onDrag(e) {
+  if (!dragState) return;
+  const bar = document.getElementById('timelineBar');
+  const rect = bar.getBoundingClientRect();
+  const timePct = (e.clientX - rect.left) / rect.width;
+  const time = Math.max(0, Math.min(timePct * editLog.input_duration, editLog.input_duration));
+  const topic = editLog.topics[dragState.topicIdx];
+
+  if (dragState.edge === 'start') {
+    if (time < topic.end - 1) topic.start = Math.round(time * 100) / 100;
+  } else {
+    if (time > topic.start + 1) topic.end = Math.round(time * 100) / 100;
+  }
+  rebuildIntervals();
+  renderUI();
+}
+function endDrag() {
+  dragState = null;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', endDrag);
+}
+
+function exportJSON() {
+  if (!editLog) return;
+  const adjusted = {
+    ...editLog,
+    adjusted: true,
+    adjusted_at: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(adjusted, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = editLog.output.replace('.mp4', '_adjusted.json');
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

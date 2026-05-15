@@ -1,0 +1,13 @@
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.srt
+*.ass
+*.json
+*.zip
+venv/
+.env
+editing
+__pycache__/
+*.pyc
