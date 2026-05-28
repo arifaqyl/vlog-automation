@@ -1,172 +1,112 @@
-\# Vlog Automaton
+# vlog-automation
 
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA-GPU_accelerated-76B900?style=flat-square&logo=nvidia&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-363739?style=flat-square)
+![Status](https://img.shields.io/badge/status-active-CCFF00?style=flat-square)
 
+AI-powered video editor. Drop in raw OBS footage, get back a tightly cut video with subtitles.
 
-AI-powered video editor that auto-cuts gaming sessions, Discord calls, and vlogs using speech transcription and audio analysis.
+Transcribes with Whisper, scores every speech segment, removes dead air, renders with GPU. 40+ hours of footage processed for 3 KL creators.
 
+---
 
-
-\## Overview
-
-
-
-Drop in raw OBS footage, get back a tightly edited video with subtitles. Built for Malaysian content creators — detects Malay/English reactions, squad callouts, and gaming moments automatically.
-
-
-
-\## Features
-
-
-
-\- \*\*AI transcription\*\*: Whisper speech-to-text with word-level timestamps
-
-\- \*\*Smart cutting\*\*: Removes dead air, filler words, boring stretches
-
-\- \*\*Genre presets\*\*: Tuned separately for Gaming, Discord Calls, and Vlogs
-
-\- \*\*Quality modes\*\*: Highlights (62% cut), Balanced (38% cut), Chill (12% cut)  
-
-\- \*\*Malay/Manglish support\*\*: Detects "gila", "pergh", "walao", "sial" as reaction markers
-
-\- \*\*Kinetic subtitles\*\*: Auto-generates styled .ass + .srt subtitle files
-
-\- \*\*GPU accelerated\*\*: NVIDIA NVENC support for fast rendering
-
-\- \*\*Review UI\*\*: HTML interface to adjust cuts before final render
-
-\- \*\*Manual trim mode\*\*: Specify exact timestamps to keep
-
-
-
-\## Requirements
-
-
-
-Python 3.10+
-
-ffmpeg (winget install ffmpeg)
-
-CUDA-capable GPU (optional, falls back to CPU)
-
-
-
-\## Installation
-
-
-
-```bash
-
-git clone https://github.com/arifaqyl/vlog-automaton
-
-cd vlog-automaton
-
-python -m venv venv
-
-venv\\Scripts\\activate
-
-pip install faster-whisper tqdm
+## How it works
 
 ```
-
-
-
-\## Usage
-
-
-
-```bash
-
-\# Windows - double click RUN.bat
-
-\# Or run directly:
-
-python auto\_cutter.py
-
+raw .mp4
+   │
+   ▼
+[Phase 1] Transcription  — faster-whisper large-v3, word-level timestamps, Malay+English
+   │
+   ▼
+[Phase 2] Scoring        — transcript weight + audio energy + visual activity per segment
+   │
+   ▼
+[Phase 3] Topic grouping — gaps > 3.5s = new topic; topics > 90s split automatically
+   │
+   ▼
+[Phase 4] Selection      — top segments by quality mode (Highlights 62% / Balanced 38% / Chill 12%)
+   │
+   ▼
+[Phase 5] Rendering      — ffmpeg concat + NVENC GPU encode
+   │
+   ▼
+[Phase 6] Subtitles      — kinetic .ass + .srt (2-word UPPERCASE chunks, auto-burned)
+   │
+   ▼
+edited .mp4 + subtitles
 ```
 
+## Genre presets
 
-
-Then follow the prompts:
-
-1\. Choose mode: Auto-cut or Manual trim
-
-2\. Drag your video file in
-
-3\. Select genre (Gaming / Discord / Vlog)
-
-4\. Select quality (Highlights / Balanced / Chill)
-
-5\. Wait for processing
-
-6\. Review cuts in review.html
-
-7\. Get final .mp4 + subtitles
-
-
-
-\## How It Works
-
-
-
-\*\*Phase 1 — Transcription\*\*: faster-whisper transcribes speech with word-level timestamps
-
-
-
-\*\*Phase 2 — Scoring\*\*: Each segment scored by:
-
-\- Reaction words detected (Malay + English)
-
-\- Audio energy levels
-
-\- Speech density
-
-\- Squad name mentions
-
-
-
-\*\*Phase 3 — Topic grouping\*\*: Nearby segments grouped into topics, split at natural gaps
-
-
-
-\*\*Phase 4 — Selection\*\*: Top segments selected based on quality mode percentage
-
-
-
-\*\*Phase 5 — Rendering\*\*: ffmpeg cuts and concatenates with GPU acceleration
-
-
-
-\*\*Phase 6 — Subtitles\*\*: Kinetic subtitles burned in (2-word UPPERCASE chunks)
-
-
-
-\## Genre Weights
-
-
+Scoring weights differ by content type:
 
 | Genre | Transcript | Audio | Visual |
-
-|-------|-----------|-------|--------|
-
+|---|---|---|---|
 | Discord Call | 55% | 35% | 10% |
-
 | Gaming | 30% | 30% | 40% |
-
 | Vlog | 45% | 35% | 20% |
 
+## Quality modes
 
+| Mode | Cut target | Use case |
+|---|---|---|
+| Highlights | 62% kept | Short-form, reels |
+| Balanced | 38% kept | Standard upload |
+| Chill | 12% kept | Light trim only |
 
-\## License
+## Stack
 
+- [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) — CTranslate2-based Whisper, runs large-v3 on GPU
+- `ffmpeg` — cutting, concatenation, NVENC encoding
+- `CUDA` — GPU transcription + rendering (falls back to CPU)
+- `tqdm` — progress tracking
 
+## Requirements
 
-MIT
+```
+Python 3.10+
+ffmpeg  (winget install ffmpeg)
+NVIDIA GPU with CUDA  (optional — CPU fallback available)
+```
 
+## Install
 
+```bash
+git clone https://github.com/arifaqyl/vlog-automation
+cd vlog-automation
+python -m venv venv
+venv\Scripts\activate
+pip install faster-whisper tqdm
+```
 
-\---
+## Usage
 
+```bash
+# Windows — double-click RUN.bat
+# or run directly:
+python auto_cutter.py
+```
 
+Prompts:
+1. Mode — Auto-cut or Manual trim
+2. Drop your `.mp4` path
+3. Genre — Gaming / Discord / Vlog / Auto
+4. Quality — Highlights / Balanced / Chill
+5. Wait. Review in `review.html`. Get final `.mp4`.
 
-\*\*Arif Aqyl\*\* • \[GitHub](https://github.com/arifaqyl) • \[arifaqyl.me](https://arifaqyl.me)
+## Reaction word detection
 
+Whisper romanizes Malay, so `gila` stays `gila`. Detector covers:
+
+```
+English: haha, bruh, bro, damn, yo, wait, clutch, gg, rip, omg ...
+Malay:   gila, babi, pergh, walao, sial, bodoh, mampus, harap, eh ...
+```
+
+Reaction density boosts segment score — squad banter, clutch moments, and highlights surface automatically.
+
+---
+
+**[arifaqyl.me](https://arifaqyl.me)** · [github.com/arifaqyl](https://github.com/arifaqyl)
