@@ -4,6 +4,7 @@
 ![CUDA](https://img.shields.io/badge/CUDA-GPU_accelerated-76B900?style=flat-square&logo=nvidia&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-363739?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-CCFF00?style=flat-square)
+![Version](https://img.shields.io/badge/version-9.1-CCFF00?style=flat-square)
 
 AI-powered video editor. Drop in raw OBS footage, get back a tightly cut video with subtitles.
 
@@ -106,6 +107,26 @@ Malay:   gila, babi, pergh, walao, sial, bodoh, mampus, harap, eh ...
 ```
 
 Reaction density boosts segment score — squad banter, clutch moments, and highlights surface automatically.
+
+## Telegram done notification (v9.1)
+
+Add `notify.py` to the same folder and set env vars:
+
+```bash
+export TG_BOT_TOKEN="your_bot_token"
+export TG_CHAT_ID="your_chat_id"
+```
+
+When a job finishes you get:
+
+```
+vlog-automation done
+Output: output_20260528_143012.mp4
+1:23:45 → 0:52:10  (62% kept, 0:31:35 cut)
+Mode: DISCORD CALL / HIGHLIGHTS
+```
+
+Every run is also appended to `processing_log.json` for usage stats.
 
 ---
 
