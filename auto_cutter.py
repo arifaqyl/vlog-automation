@@ -1130,6 +1130,20 @@ def main():
         print(f"  Format:    9:16 Vertical (Shorts/TikTok)")
     print(f"{'='*56}")
 
+    # Optional: Telegram done notification + stats log
+    try:
+        import notify
+        notify.done({
+            "input_file":  str(video_files[0]) if video_files else "",
+            "total_dur":   total_dur,
+            "kept_dur":    keep_dur,
+            "output_file": output_file,
+            "genre":       genre_cfg.get("name", ""),
+            "quality":     quality_cfg.get("name", ""),
+        })
+    except Exception:
+        pass
+
 
 def render_from_json(json_path):
     """Render from an adjusted edit log JSON (from the review UI)."""
